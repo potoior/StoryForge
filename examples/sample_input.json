@@ -1,0 +1,39 @@
+{
+  "title": "The Last Heir",
+  "prompt": "A young mage discovers she is the last heir of an ancient magical bloodline. She must journey across the realm to find three lost artifacts before a dark sorcerer does.",
+  "characters": [
+    {
+      "name": "Lyra",
+      "description": "A 19-year-old mage with silver hair and violet eyes. She grew up in a small village knowing nothing of her true heritage.",
+      "personality": "Curious, brave, sometimes reckless, but deeply compassionate."
+    },
+    {
+      "name": "Kael",
+      "description": "A 25-year-old former soldier turned wanderer. He carries a cursed sword that whispers to him.",
+      "personality": "Stoic, honorable, haunted by his past but loyal to those he cares about."
+    },
+    {
+      "name": "Shadowmancer Vex",
+      "description": "The dark sorcerer seeking the artifacts. Once a respected scholar who was corrupted by forbidden magic.",
+      "personality": "Intelligent, patient, believes the ends justify the means."
+    }
+  ],
+  "outline": [
+    {
+      "title": "The Awakening",
+      "summary": "Lyra discovers her magical abilities when her village is attacked. A mysterious stranger (Kael) saves her and reveals her heritage.",
+      "key_events": ["Village attack", "Magic awakening", "Kael's arrival", "Heritage revelation"]
+    },
+    {
+      "title": "The First Artifact",
+      "summary": "Lyra and Kael journey to the Crystal Caves to find the first artifact. They face traps and encounter Vex's minions.",
+      "key_events": ["Journey begins", "Crystal Caves exploration", "First battle", "Artifact discovery"]
+    },
+    {
+      "title": "The Betrayal",
+      "summary": "A trusted ally reveals their true allegiance to Vex. Lyra must make a difficult choice that tests her character.",
+      "key_events": ["Ally revealed as traitor", "Capture and escape", "Character defining choice", "New resolve"]
+    }
+  ],
+  "style": "default"
+}
