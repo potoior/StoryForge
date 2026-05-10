@@ -12,7 +12,8 @@ STRICT RULES:
 6. Use vivid sensory details (sights, sounds, smells, textures)
 7. Stay consistent with previously established characters and events
 8. Match the requested writing style
-9. Do NOT reference events from future chapters"""
+9. Do NOT reference events from future chapters
+10. All output (title, summary, content) MUST be written in the same language as specified in the LANGUAGE instruction. Absolutely no mixing of languages."""
 
 
 def build_chapter_prompt(
@@ -38,7 +39,7 @@ def build_chapter_prompt(
     }
     style_text = style_instructions.get(style, style_instructions["default"])
 
-    lang_instruction = "All output (title, summary, content) MUST be written in Chinese (中文)." if language == "zh" else "All output (title, summary, content) MUST be written in English."
+    lang_instruction = "所有输出（标题、摘要、正文）必须使用中文撰写，绝对不允许使用英文。禁止出现英文句子或段落。" if language == "zh" else "All output (title, summary, content) MUST be written in English."
 
     context_parts = []
     if previous_summary:
@@ -74,8 +75,8 @@ IMPORTANT: The "content" field must be AT LEAST {config.CHAPTER_MIN_WORDS} words
 OUTPUT FORMAT (strict JSON):
 {{
     "title": "{chapter_title}",
-    "summary": "A brief summary of what actually happens in this chapter (2-3 sentences)",
-    "content": "The full chapter text (minimum {config.CHAPTER_MIN_WORDS} words with rich detail and dialogue)"
+    "summary": "本章实际发生内容的简要概述（2-3句话）",
+    "content": "完整的章节正文（至少{config.CHAPTER_MIN_WORDS}字，包含丰富的细节和对话）"
 }}
 
 Write the chapter now:"""

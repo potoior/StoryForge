@@ -39,7 +39,7 @@ def build_rewrite_prompt(
     }
     style_text = style_instructions.get(style, style_instructions["default"])
 
-    lang_instruction = "All output (title, summary, content) MUST be written in Chinese (中文)." if language == "zh" else "All output (title, summary, content) MUST be written in English."
+    lang_instruction = "所有输出（标题、摘要、正文）必须使用中文撰写，绝对不允许使用英文。禁止出现英文句子或段落。" if language == "zh" else "All output (title, summary, content) MUST be written in English."
 
     context_parts = []
     if previous_summary:
@@ -78,9 +78,9 @@ IMPORTANT: The rewritten "content" must be AT LEAST {config.CHAPTER_MIN_WORDS} w
 
 OUTPUT FORMAT (strict JSON):
 {{
-    "title": "Updated chapter title (can be changed if instruction requires)",
-    "summary": "Updated summary of the rewritten chapter (2-3 sentences)",
-    "content": "The full rewritten chapter text (minimum {config.CHAPTER_MIN_WORDS} words with rich detail and dialogue)"
+    "title": "更新后的章节标题（可根据指令修改）",
+    "summary": "重写后章节的概述（2-3句话）",
+    "content": "完整的重写章节正文（至少{config.CHAPTER_MIN_WORDS}字，包含丰富的细节和对话）"
 }}
 
 Rewrite the chapter now:"""

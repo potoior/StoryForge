@@ -523,8 +523,8 @@ export default function WorldBuilding({ story, onUpdate, addToast }) {
       </div>
 
       <div className="wb-sections">
-        {/* Relationship Graph */}
-        <section className="wb-section">
+        {/* Relationship Graph - temporarily hidden */}
+        {false && <section className="wb-section">
           <div className="wb-section-header">
             <h3>人物关系图谱</h3>
             <div className="wb-graph-hint">
@@ -935,7 +935,7 @@ export default function WorldBuilding({ story, onUpdate, addToast }) {
               </div>
             )}
           </div>
-        </section>
+        </section>}
 
         {/* World Lore */}
         <section className="wb-section">

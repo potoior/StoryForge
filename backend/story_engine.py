@@ -343,6 +343,7 @@ class StoryEngine:
             chapter_content=chapter.content,
             characters=characters,
             current_memory=current_memory,
+            language=story.language or "zh",
         )
 
         try:
