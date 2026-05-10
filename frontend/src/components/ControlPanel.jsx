@@ -13,6 +13,8 @@ export default function ControlPanel({
   onGenerate,
   onRewrite,
   onExport,
+  onDeleteStory,
+  onEditStory,
   loading,
   progress,
   previewMode,
@@ -183,10 +185,32 @@ export default function ControlPanel({
 
       {story && (
         <div className="panel-section" style={{ marginTop: 'auto' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12 }}>
             <div><strong>{story.title}</strong></div>
             <div>共 {story.chapters.length} 章</div>
             <div>风格：{STYLES.find(s => s.value === story.style)?.label || story.style}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-outline"
+              style={{ flex: 1, fontSize: '0.8rem', padding: '6px 8px' }}
+              onClick={onEditStory}
+              disabled={loading}
+            >
+              编辑信息
+            </button>
+            <button
+              className="btn btn-danger"
+              style={{ flex: 1, fontSize: '0.8rem', padding: '6px 8px' }}
+              onClick={() => {
+                if (confirm('确定删除「' + story.title + '」？此操作不可恢复。')) {
+                  onDeleteStory();
+                }
+              }}
+              disabled={loading}
+            >
+              删除故事
+            </button>
           </div>
         </div>
       )}

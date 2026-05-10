@@ -76,3 +76,10 @@ class ChapterRewriteRequest(BaseModel):
 class ChapterAddRequest(BaseModel):
     title: str
     summary: str
+
+
+class StoryUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    prompt: Optional[str] = None
+    characters: Optional[List[Character]] = None
+    style: Optional[str] = None

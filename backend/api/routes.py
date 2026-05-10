@@ -1,7 +1,7 @@
 import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from ..models import Story, StoryCreateRequest, ChapterRewriteRequest, ChapterAddRequest
+from ..models import Story, StoryCreateRequest, ChapterRewriteRequest, ChapterAddRequest, StoryUpdateRequest
 from ..story_engine import StoryEngine
 from ..llm_client import create_llm_client
 from .. import storage
@@ -56,6 +56,25 @@ async def get_story(story_id: str):
     story = storage.load_story(story_id)
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
+    return story
+
+
+@router.put("/stories/{story_id}", response_model=Story)
+async def update_story(story_id: str, request: StoryUpdateRequest):
+    story = storage.load_story(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    if request.title is not None:
+        story.title = request.title
+    if request.prompt is not None:
+        story.prompt = request.prompt
+    if request.characters is not None:
+        story.characters = request.characters
+    if request.style is not None:
+        story.style = request.style
+
+    storage.save_story(story)
     return story
 
 

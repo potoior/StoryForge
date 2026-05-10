@@ -4,6 +4,7 @@ import ChapterEditor from './components/ChapterEditor';
 import ControlPanel from './components/ControlPanel';
 import CreateStoryModal from './components/CreateStoryModal';
 import AddChapterModal from './components/AddChapterModal';
+import EditStoryModal from './components/EditStoryModal';
 import StoryPreview from './components/StoryPreview';
 import Toast from './components/Toast';
 
@@ -22,6 +23,7 @@ export default function App() {
   const [storyList, setStoryList] = useState([]);
   const [showStoryList, setShowStoryList] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
 
@@ -251,6 +253,40 @@ export default function App() {
     }
   };
 
+  const handleDeleteStory = async () => {
+    if (!story) return;
+    try {
+      const res = await fetch(`${API}/stories/${story.story_id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('删除失败');
+      setStory(null);
+      setActiveChapterId(null);
+      setPreviewMode(false);
+      addToast('故事已删除', 'info');
+      fetchStoryList();
+    } catch (err) {
+      addToast('删除失败：' + err.message, 'error');
+    }
+  };
+
+  const handleUpdateStory = async (updates) => {
+    if (!story) return;
+    try {
+      const res = await fetch(`${API}/stories/${story.story_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error('更新失败');
+      const data = await res.json();
+      setStory(data);
+      setShowEditModal(false);
+      addToast('故事信息已更新', 'success');
+      fetchStoryList();
+    } catch (err) {
+      addToast('更新失败：' + err.message, 'error');
+    }
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -312,6 +348,8 @@ export default function App() {
           onGenerate={() => setShowCreateModal(true)}
           onRewrite={handleRewrite}
           onExport={handleExport}
+          onDeleteStory={handleDeleteStory}
+          onEditStory={() => setShowEditModal(true)}
           loading={loading}
           progress={progress}
           previewMode={previewMode}
@@ -334,6 +372,14 @@ export default function App() {
           onSubmit={handleAddChapter}
           onClose={() => setShowAddChapterModal(false)}
           loading={loading}
+        />
+      )}
+
+      {showEditModal && story && (
+        <EditStoryModal
+          story={story}
+          onSubmit={handleUpdateStory}
+          onClose={() => setShowEditModal(false)}
         />
       )}
 
