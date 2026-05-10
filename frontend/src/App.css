@@ -443,3 +443,158 @@ textarea.input {
 .save-status.saved {
   color: var(--success);
 }
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: white;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: toast-in 0.3s ease;
+  max-width: 360px;
+  word-break: break-word;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toast-info {
+  background: var(--primary);
+}
+
+.toast-success {
+  background: var(--success);
+}
+
+.toast-error {
+  background: var(--danger);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Chapter Delete Button */
+.chapter-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.chapter-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.chapter-item:hover .chapter-delete-btn {
+  opacity: 1;
+}
+
+.chapter-delete-btn:hover {
+  color: var(--danger);
+}
+
+/* Memory Panel */
+.memory-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.memory-arrow {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.memory-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.82rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.memory-block {
+  margin-bottom: 12px;
+}
+
+.memory-block:last-child {
+  margin-bottom: 0;
+}
+
+.memory-label {
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.memory-text {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.memory-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.memory-char-name,
+.memory-relation {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.memory-char-state {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.memory-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.memory-list li {
+  margin-bottom: 2px;
+}
+
+.memory-list.unresolved li {
+  color: var(--danger);
+}

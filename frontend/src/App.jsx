@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import ChapterList from './components/ChapterList';
 import ChapterEditor from './components/ChapterEditor';
 import ControlPanel from './components/ControlPanel';
 import CreateStoryModal from './components/CreateStoryModal';
 import AddChapterModal from './components/AddChapterModal';
+import Toast from './components/Toast';
 
 const API = '/api';
+
+let toastId = 0;
 
 export default function App() {
   const [story, setStory] = useState(null);
@@ -13,9 +16,19 @@ export default function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddChapterModal, setShowAddChapterModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(null); // { current, total, message }
+  const [progress, setProgress] = useState(null);
+  const [toasts, setToasts] = useState([]);
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
+
+  const addToast = useCallback((message, type = 'info', duration = 3000) => {
+    const id = ++toastId;
+    setToasts((prev) => [...prev, { id, message, type, duration }]);
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const handleGenerate = async (formData) => {
     setLoading(true);
@@ -38,7 +51,7 @@ export default function App() {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        buffer = lines.pop(); // 保留不完整的行
+        buffer = lines.pop();
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
@@ -52,13 +65,11 @@ export default function App() {
                 message: event.message,
               });
             } else if (event.type === 'chapter_done') {
-              // 实时更新故事状态（逐步显示章节）
               setStory((prev) => {
                 if (!prev) {
-                  // 首章完成，创建故事骨架
                   return {
                     ...formData,
-                    story_id: '', // 稍后由 done 事件填充
+                    story_id: '',
                     chapters: [event.chapter],
                     memory: {},
                   };
@@ -77,12 +88,13 @@ export default function App() {
                 setActiveChapterId(event.story.chapters[0].id);
               }
               setShowCreateModal(false);
+              addToast('故事创建完成！', 'success');
             }
           } catch {}
         }
       }
     } catch (err) {
-      alert('错误：' + err.message);
+      addToast('创建失败：' + err.message, 'error');
     } finally {
       setLoading(false);
       setProgress(null);
@@ -105,7 +117,7 @@ export default function App() {
       });
       return true;
     } catch (err) {
-      console.error('保存失败:', err.message);
+      addToast('保存失败：' + err.message, 'error');
       return false;
     }
   };
@@ -142,12 +154,13 @@ export default function App() {
               setProgress({ current: 0, total: 0, message: event.message });
             } else if (event.type === 'done') {
               setStory(event.story);
+              addToast('章节重写完成！', 'success');
             }
           } catch {}
         }
       }
     } catch (err) {
-      alert('错误：' + err.message);
+      addToast('重写失败：' + err.message, 'error');
     } finally {
       setLoading(false);
       setProgress(null);
@@ -169,10 +182,29 @@ export default function App() {
       const newChapter = data.chapters[data.chapters.length - 1];
       setActiveChapterId(newChapter.id);
       setShowAddChapterModal(false);
+      addToast('章节添加成功！', 'success');
     } catch (err) {
-      alert('错误：' + err.message);
+      addToast('添加失败：' + err.message, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteChapter = async (chapterId) => {
+    if (!story) return;
+    try {
+      const res = await fetch(`${API}/stories/${story.story_id}/chapters/${chapterId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('删除失败');
+      const data = await res.json();
+      setStory(data);
+      if (activeChapterId === chapterId) {
+        setActiveChapterId(data.chapters.length > 0 ? data.chapters[0].id : null);
+      }
+      addToast('章节已删除', 'info');
+    } catch (err) {
+      addToast('删除失败：' + err.message, 'error');
     }
   };
 
@@ -185,9 +217,9 @@ export default function App() {
       const res = await fetch(url);
       if (!res.ok) throw new Error('导出失败');
       const data = await res.json();
-      alert('故事已导出到：' + data.path);
+      addToast('已导出到：' + data.path, 'success', 5000);
     } catch (err) {
-      alert('错误：' + err.message);
+      addToast('导出失败：' + err.message, 'error');
     }
   };
 
@@ -210,6 +242,7 @@ export default function App() {
             activeId={activeChapterId}
             onSelect={setActiveChapterId}
             onAddChapter={() => setShowAddChapterModal(true)}
+            onDeleteChapter={handleDeleteChapter}
           />
         </aside>
 
@@ -243,6 +276,8 @@ export default function App() {
           loading={loading}
         />
       )}
+
+      <Toast toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

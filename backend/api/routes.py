@@ -137,6 +137,25 @@ async def delete_story(story_id: str):
     return {"message": "Deleted"}
 
 
+@router.delete("/stories/{story_id}/chapters/{chapter_id}")
+async def delete_chapter(story_id: str, chapter_id: str):
+    story = storage.load_story(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    original_len = len(story.chapters)
+    story.chapters = [ch for ch in story.chapters if ch.id != chapter_id]
+    if len(story.chapters) == original_len:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    # 重新编号
+    for i, ch in enumerate(story.chapters):
+        ch.chapter_number = i + 1
+
+    storage.save_story(story)
+    return story
+
+
 @router.get("/stories/{story_id}/export")
 async def export_story(story_id: str):
     story = storage.load_story(story_id)
