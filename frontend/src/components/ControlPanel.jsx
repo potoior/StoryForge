@@ -14,6 +14,7 @@ export default function ControlPanel({
   onRewrite,
   onExport,
   loading,
+  progress,
 }) {
   const [style, setStyle] = useState('default');
   const [rewriteInstruction, setRewriteInstruction] = useState('');
@@ -66,15 +67,27 @@ export default function ControlPanel({
             >
               {loading ? '重写中...' : '重写本章'}
             </button>
+            {loading && progress && (
+              <div className="progress-text" style={{ marginTop: 8 }}>
+                {progress.message}
+              </div>
+            )}
           </div>
 
           <div className="panel-section">
             <button
               className="btn btn-outline"
-              onClick={onExport}
+              onClick={() => onExport('markdown')}
               disabled={loading}
             >
-              导出故事
+              导出 Markdown
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => onExport('json')}
+              disabled={loading}
+            >
+              导出 JSON
             </button>
           </div>
         </>

@@ -90,7 +90,7 @@ export default function App() {
   };
 
   const handleSaveChapter = async (chapterId, updates) => {
-    if (!story) return;
+    if (!story) return false;
     try {
       const res = await fetch(`${API}/stories/${story.story_id}/chapters/${chapterId}`, {
         method: 'PUT',
@@ -103,27 +103,54 @@ export default function App() {
         ...story,
         chapters: story.chapters.map((c) => (c.id === chapterId ? updated : c)),
       });
+      return true;
     } catch (err) {
-      alert('错误：' + err.message);
+      console.error('保存失败:', err.message);
+      return false;
     }
   };
 
   const handleRewrite = async (chapterId, instruction, style) => {
     if (!story) return;
     setLoading(true);
+    setProgress({ current: 0, total: 0, message: '正在重写...' });
     try {
-      const res = await fetch(`${API}/stories/${story.story_id}/rewrite`, {
+      const res = await fetch(`${API}/stories/${story.story_id}/rewrite/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chapter_id: chapterId, instruction, style }),
       });
       if (!res.ok) throw new Error('重写失败');
-      const data = await res.json();
-      setStory(data);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === 'status' || event.type === 'progress') {
+              setProgress({ current: 0, total: 0, message: event.message });
+            } else if (event.type === 'done') {
+              setStory(event.story);
+            }
+          } catch {}
+        }
+      }
     } catch (err) {
       alert('错误：' + err.message);
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -149,10 +176,13 @@ export default function App() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format = 'json') => {
     if (!story) return;
     try {
-      const res = await fetch(`${API}/stories/${story.story_id}/export`);
+      const url = format === 'markdown'
+        ? `${API}/stories/${story.story_id}/export/markdown`
+        : `${API}/stories/${story.story_id}/export`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error('导出失败');
       const data = await res.json();
       alert('故事已导出到：' + data.path);
@@ -192,6 +222,7 @@ export default function App() {
           onRewrite={handleRewrite}
           onExport={handleExport}
           loading={loading}
+          progress={progress}
         />
       </div>
 

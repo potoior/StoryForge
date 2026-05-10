@@ -92,6 +92,32 @@ async def rewrite_chapter(story_id: str, request: ChapterRewriteRequest):
     return story
 
 
+@router.post("/stories/{story_id}/rewrite/stream")
+async def rewrite_chapter_stream(story_id: str, request: ChapterRewriteRequest):
+    """SSE 流式重写章节。"""
+    story = storage.load_story(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    def event_generator():
+        engine = _get_engine()
+        for event in engine.rewrite_chapter_streaming(story, request):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            if event["type"] == "done":
+                updated_story = Story(**event["story"])
+                storage.save_story(updated_story)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/stories/{story_id}/chapters", response_model=Story)
 async def add_chapter(story_id: str, request: ChapterAddRequest):
     story = storage.load_story(story_id)
@@ -117,4 +143,13 @@ async def export_story(story_id: str):
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
     path = storage.export_story(story)
+    return {"message": "Exported", "path": path}
+
+
+@router.get("/stories/{story_id}/export/markdown")
+async def export_story_markdown(story_id: str):
+    story = storage.load_story(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    path = storage.export_story_markdown(story)
     return {"message": "Exported", "path": path}

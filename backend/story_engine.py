@@ -226,6 +226,47 @@ class StoryEngine:
         story.memory = self._update_memory(story, new_chapter)
         return story
 
+    def rewrite_chapter_streaming(self, story: Story, request: ChapterRewriteRequest):
+        """重写章节的流式版本，yield 进度事件。"""
+        target_idx = None
+        for i, ch in enumerate(story.chapters):
+            if ch.id == request.chapter_id:
+                target_idx = i
+                break
+        if target_idx is None:
+            raise ValueError(f"Chapter {request.chapter_id} not found")
+
+        target = story.chapters[target_idx]
+        next_summary = story.chapters[target_idx + 1].summary if target_idx < len(story.chapters) - 1 else ""
+
+        yield {"type": "status", "message": f"正在重写第 {target.chapter_number} 章：{target.title}..."}
+
+        result = self._rewrite_chapter(
+            chapter_number=target.chapter_number,
+            chapter_title=target.title,
+            current_content=target.content,
+            instruction=request.instruction,
+            characters=[c.model_dump() for c in story.characters],
+            style=request.style or story.style or "default",
+            memory=story.memory,
+            next_summary=next_summary,
+        )
+
+        yield {"type": "progress", "message": "重写完成，正在更新记忆..."}
+
+        new_chapter = Chapter(
+            id=target.id,
+            title=result["title"],
+            summary=result["summary"],
+            content=result["content"],
+            status=ChapterStatus.REGENERATED,
+            chapter_number=target.chapter_number,
+        )
+        story.chapters[target_idx] = new_chapter
+        story.memory = self._update_memory(story, new_chapter)
+
+        yield {"type": "done", "story": story.model_dump()}
+
     def add_chapter(self, story: Story, title: str, summary: str) -> Story:
         chapter_number = len(story.chapters) + 1
 

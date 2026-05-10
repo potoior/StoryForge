@@ -108,3 +108,35 @@ def export_story(story: Story) -> str:
     """导出故事（实际上 save_story 已经做了全部事情，这里返回路径）。"""
     story_dir = _story_dir(story)
     return str(story_dir)
+
+
+def export_story_markdown(story: Story) -> str:
+    """导出故事为 Markdown 格式，返回文件路径。"""
+    story_dir = _story_dir(story)
+    story_dir.mkdir(parents=True, exist_ok=True)
+
+    lines = [f"# {story.title}\n"]
+    lines.append(f"> {story.prompt}\n")
+
+    if story.characters:
+        lines.append("## 人物\n")
+        for c in story.characters:
+            line = f"- **{c.name}**：{c.description}"
+            if c.personality:
+                line += f"（{c.personality}）"
+            lines.append(line)
+        lines.append("")
+
+    for ch in story.chapters:
+        lines.append(f"---\n")
+        lines.append(f"## 第 {ch.chapter_number} 章：{ch.title}\n")
+        if ch.summary:
+            lines.append(f"*{ch.summary}*\n")
+        lines.append(ch.content)
+        lines.append("")
+
+    md_path = story_dir / f"{_sanitize_title(story.title)}.md"
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    return str(md_path)

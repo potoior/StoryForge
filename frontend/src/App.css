@@ -415,3 +415,31 @@ textarea.input {
   color: var(--accent);
   text-align: center;
 }
+
+/* Editor Footer & Save Status */
+.editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.word-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.save-status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: opacity 0.3s;
+}
+
+.save-status.saving {
+  color: var(--accent);
+}
+
+.save-status.saved {
+  color: var(--success);
+}
