@@ -126,6 +126,9 @@ export default function WorldBuilding({ story, onUpdate, addToast }) {
   // Double-click creation state
   const [createForm, setCreateForm] = useState(null); // { x, y, svgX, svgY }
 
+  // Edit node state
+  const [editForm, setEditForm] = useState(null); // { name, description, personality, type }
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState(null); // { x, y, svgX, svgY, targetNode? }
   const contextMenuRef = useRef(null);
@@ -331,6 +334,82 @@ export default function WorldBuilding({ story, onUpdate, addToast }) {
     setConnecting(name);
     setContextMenu(null);
   };
+
+  // Edit node submit
+  const handleEditSubmit = useCallback(async () => {
+    if (!editForm) return;
+    const oldName = editForm.name;
+
+    if (editForm.type === 'character') {
+      const newChars = characters.map((c) =>
+        c.name === oldName
+          ? { ...c, name: editForm.name, description: editForm.description, personality: editForm.personality, background: editForm.background }
+          : c
+      );
+      try {
+        const res = await fetch(`${API}/stories/${story.story_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ characters: newChars }),
+        });
+        if (!res.ok) throw new Error('更新失败');
+        const data = await res.json();
+
+        // Update relationship names if character was renamed
+        if (oldName !== editForm.name) {
+          const newRels = world.relationships.map((r) => ({
+            ...r,
+            character_a: r.character_a === oldName ? editForm.name : r.character_a,
+            character_b: r.character_b === oldName ? editForm.name : r.character_b,
+          }));
+          await fetch(`${API}/stories/${story.story_id}/world`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ relationships: newRels }),
+          });
+        }
+
+        const fresh = await fetch(`${API}/stories/${story.story_id}`);
+        if (fresh.ok) {
+          const full = await fresh.json();
+          onUpdate(full);
+          setWorld({
+            world_lore: full.world?.world_lore || '',
+            locations: full.world?.locations || [],
+            factions: full.world?.factions || [],
+            relationships: full.world?.relationships || [],
+            notes: full.world?.notes || '',
+          });
+        }
+        addToast(`角色「${editForm.name}」已更新`, 'success');
+      } catch (err) {
+        addToast('更新失败：' + err.message, 'error');
+        return;
+      }
+    } else {
+      const newFactions = factions.map((f) =>
+        f.name === oldName ? { ...f, name: editForm.name, description: editForm.description } : f
+      );
+      const newRels = oldName !== editForm.name
+        ? world.relationships.map((r) => ({
+            ...r,
+            character_a: r.character_a === oldName ? editForm.name : r.character_a,
+            character_b: r.character_b === oldName ? editForm.name : r.character_b,
+          }))
+        : world.relationships;
+      setWorld({ ...world, factions: newFactions, relationships: newRels });
+      addToast(`组织「${editForm.name}」已更新`, 'success');
+    }
+
+    // Update position name if renamed
+    if (oldName !== editForm.name) {
+      setPositions((prev) =>
+        prev.map((p) => p.name === oldName ? { ...p, name: editForm.name } : p)
+      );
+    }
+
+    setEditForm(null);
+  }, [editForm, characters, factions, world, story, onUpdate, addToast]);
 
   // Delete a character or faction node
   const deleteNode = useCallback(async (name) => {
@@ -734,6 +813,56 @@ export default function WorldBuilding({ story, onUpdate, addToast }) {
               </div>
             )}
 
+            {/* Edit node form */}
+            {editForm && (
+              <div
+                className="wb-create-form"
+                style={{
+                  left: Math.min(dimensions.width / 2 - 140, dimensions.width * 0.8 - 280),
+                  top: Math.min(dimensions.height / 2 - 160, dimensions.height * 0.8 - 320),
+                }}
+              >
+                <div className="wb-create-title">
+                  编辑{editForm.type === 'character' ? '角色' : '组织'}
+                </div>
+                <input
+                  className="input"
+                  placeholder={editForm.type === 'character' ? '角色名称' : '组织名称'}
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  autoFocus
+                />
+                <textarea
+                  className="input wb-create-desc"
+                  placeholder="简介"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                />
+                {editForm.type === 'character' && (
+                  <>
+                    <input
+                      className="input"
+                      placeholder="性格（可选）"
+                      value={editForm.personality}
+                      onChange={(e) => setEditForm({ ...editForm, personality: e.target.value })}
+                    />
+                    <textarea
+                      className="input wb-create-desc"
+                      placeholder="背景故事（可选）"
+                      value={editForm.background}
+                      onChange={(e) => setEditForm({ ...editForm, background: e.target.value })}
+                    />
+                  </>
+                )}
+                <div className="wb-create-actions">
+                  <button className="btn btn-outline btn-sm" onClick={() => setEditForm(null)}>取消</button>
+                  <button className="btn btn-primary btn-sm" onClick={handleEditSubmit} disabled={!editForm.name.trim()}>
+                    保存
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Context menu */}
             {contextMenu && (
               <div
@@ -747,6 +876,19 @@ export default function WorldBuilding({ story, onUpdate, addToast }) {
                 {contextMenu.targetNode ? (
                   <>
                     <div className="wb-context-title">{contextMenu.targetNode}</div>
+                    <div className="wb-context-item" onClick={() => {
+                      const name = contextMenu.targetNode;
+                      const char = characters.find((c) => c.name === name);
+                      const fac = factions.find((f) => f.name === name);
+                      if (char) {
+                        setEditForm({ name: char.name, description: char.description || '', personality: char.personality || '', background: char.background || '', type: 'character' });
+                      } else if (fac) {
+                        setEditForm({ name: fac.name, description: fac.description || '', personality: '', background: '', type: 'faction' });
+                      }
+                      setContextMenu(null);
+                    }}>
+                      编辑
+                    </div>
                     <div className="wb-context-item" onClick={() => startConnect(contextMenu.targetNode)}>
                       与其它节点连线
                     </div>
