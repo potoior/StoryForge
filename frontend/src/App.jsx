@@ -13,28 +13,79 @@ export default function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddChapterModal, setShowAddChapterModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(null); // { current, total, message }
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
 
   const handleGenerate = async (formData) => {
     setLoading(true);
+    setProgress({ current: 0, total: 0, message: '正在连接...' });
     try {
-      const res = await fetch(`${API}/stories`, {
+      const res = await fetch(`${API}/stories/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
       if (!res.ok) throw new Error('创建故事失败');
-      const data = await res.json();
-      setStory(data);
-      if (data.chapters.length > 0) {
-        setActiveChapterId(data.chapters[0].id);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // 保留不完整的行
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+
+            if (event.type === 'status' || event.type === 'progress') {
+              setProgress({
+                current: event.current || 0,
+                total: event.total || 0,
+                message: event.message,
+              });
+            } else if (event.type === 'chapter_done') {
+              // 实时更新故事状态（逐步显示章节）
+              setStory((prev) => {
+                if (!prev) {
+                  // 首章完成，创建故事骨架
+                  return {
+                    ...formData,
+                    story_id: '', // 稍后由 done 事件填充
+                    chapters: [event.chapter],
+                    memory: {},
+                  };
+                }
+                const exists = prev.chapters.some((c) => c.id === event.chapter.id);
+                return {
+                  ...prev,
+                  chapters: exists
+                    ? prev.chapters.map((c) => (c.id === event.chapter.id ? event.chapter : c))
+                    : [...prev.chapters, event.chapter],
+                };
+              });
+            } else if (event.type === 'done') {
+              setStory(event.story);
+              if (event.story.chapters.length > 0) {
+                setActiveChapterId(event.story.chapters[0].id);
+              }
+              setShowCreateModal(false);
+            }
+          } catch {}
+        }
       }
-      setShowCreateModal(false);
     } catch (err) {
       alert('错误：' + err.message);
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -149,6 +200,7 @@ export default function App() {
           onSubmit={handleGenerate}
           onClose={() => setShowCreateModal(false)}
           loading={loading}
+          progress={progress}
         />
       )}
 

@@ -36,6 +36,36 @@ def _extract_json(text: str) -> dict:
     raise ValueError(f"无法从 LLM 返回中提取 JSON。原始返回:\n{text[:500]}")
 
 
+def _validate_chapter_data(data: dict, chapter_number: int, chapter_title: str) -> dict:
+    """校验章节数据，缺失字段用 fallback 值填充。"""
+    if not isinstance(data, dict):
+        raise ValueError(f"章节 {chapter_number} 返回数据不是 dict: {type(data)}")
+
+    fallback_title = chapter_title or f"Chapter {chapter_number}"
+    fallback_summary = f"Summary for chapter {chapter_number}."
+    fallback_content = f"Content for chapter {chapter_number} is being generated."
+
+    return {
+        "title": data.get("title", fallback_title),
+        "summary": data.get("summary", fallback_summary),
+        "content": data.get("content", fallback_content),
+    }
+
+
+def _validate_outline_data(data: dict) -> dict:
+    """校验大纲数据。"""
+    if not isinstance(data, dict):
+        return {"title": "Untitled", "outline": []}
+
+    if "outline" not in data or not isinstance(data["outline"], list):
+        data["outline"] = []
+
+    if "title" not in data:
+        data["title"] = "Untitled"
+
+    return data
+
+
 def _build_memory_context(memory: StoryMemory) -> str:
     """将记忆对象转为可读的上下文文本。"""
     parts = []
@@ -82,7 +112,6 @@ class StoryEngine:
         llm_outline = outline_data.get("outline", [])
         outline_items = user_outline if len(user_outline) == len(llm_outline) else (llm_outline if llm_outline else user_outline)
 
-        # 逐章生成，每章生成后更新记忆
         for i, item in enumerate(outline_items):
             next_summary = outline_items[i + 1]["summary"] if i < len(outline_items) - 1 else ""
 
@@ -96,12 +125,71 @@ class StoryEngine:
                 next_summary=next_summary,
             )
             story.chapters.append(chapter)
-
-            # 生成完一章后，更新记忆
             story.memory = self._update_memory(story, chapter)
             print(f"[StoryEngine] Memory updated after chapter {i + 1}")
 
         return story
+
+    def create_story_streaming(self, request: StoryCreateRequest):
+        """生成故事的流式版本，yield 进度事件。"""
+        yield {"type": "status", "message": "正在生成大纲...", "step": "outline"}
+
+        outline_data = self._generate_outline(request)
+
+        story = Story(
+            title=request.title or outline_data.get("title", "Untitled"),
+            prompt=request.prompt,
+            characters=request.characters,
+            outline=request.outline,
+            style=request.style,
+        )
+
+        user_outline = [o.model_dump() for o in request.outline]
+        llm_outline = outline_data.get("outline", [])
+        outline_items = user_outline if len(user_outline) == len(llm_outline) else (llm_outline if llm_outline else user_outline)
+
+        total = len(outline_items)
+        yield {"type": "progress", "current": 0, "total": total, "message": f"大纲完成，共 {total} 章"}
+
+        for i, item in enumerate(outline_items):
+            next_summary = outline_items[i + 1]["summary"] if i < len(outline_items) - 1 else ""
+
+            yield {
+                "type": "progress",
+                "current": i + 1,
+                "total": total,
+                "message": f"正在生成第 {i + 1}/{total} 章：{item['title']}",
+                "chapter_title": item["title"],
+            }
+
+            chapter = self._generate_chapter(
+                chapter_number=i + 1,
+                chapter_title=item["title"],
+                chapter_summary=item["summary"],
+                characters=[c.model_dump() for c in request.characters],
+                style=request.style or "default",
+                memory=story.memory,
+                next_summary=next_summary,
+            )
+            story.chapters.append(chapter)
+
+            yield {
+                "type": "chapter_done",
+                "current": i + 1,
+                "total": total,
+                "chapter": chapter.model_dump(),
+                "message": f"第 {i + 1} 章完成",
+            }
+
+            yield {
+                "type": "progress",
+                "current": i + 1,
+                "total": total,
+                "message": f"正在更新故事记忆...",
+            }
+            story.memory = self._update_memory(story, chapter)
+
+        yield {"type": "done", "story": story.model_dump()}
 
     def rewrite_chapter(self, story: Story, request: ChapterRewriteRequest) -> Story:
         target_idx = None
@@ -135,8 +223,6 @@ class StoryEngine:
             chapter_number=target.chapter_number,
         )
         story.chapters[target_idx] = new_chapter
-
-        # 重写后更新记忆
         story.memory = self._update_memory(story, new_chapter)
         return story
 
@@ -153,8 +239,6 @@ class StoryEngine:
             next_summary="",
         )
         story.chapters.append(chapter)
-
-        # 添加后更新记忆
         story.memory = self._update_memory(story, chapter)
         return story
 
@@ -172,10 +256,9 @@ class StoryEngine:
             current_memory=current_memory,
         )
 
-        raw = self.llm.generate(prompt, MEMORY_SYSTEM_PROMPT)
-        data = _extract_json(raw)
-
         try:
+            raw = self.llm.generate(prompt, MEMORY_SYSTEM_PROMPT)
+            data = _extract_json(raw)
             return StoryMemory(
                 story_summary=data.get("story_summary", story.memory.story_summary),
                 character_states=data.get("character_states", story.memory.character_states),
@@ -183,7 +266,8 @@ class StoryEngine:
                 key_events=data.get("key_events", story.memory.key_events),
                 unresolved_plots=data.get("unresolved_plots", story.memory.unresolved_plots),
             )
-        except Exception:
+        except Exception as e:
+            print(f"[StoryEngine] Memory extraction failed: {e}, keeping existing memory")
             return story.memory
 
     def _generate_outline(self, request: StoryCreateRequest) -> dict:
@@ -195,7 +279,7 @@ class StoryEngine:
         )
         raw = self.llm.generate(prompt, OUTLINE_SYSTEM_PROMPT)
         print(f"[StoryEngine] Outline LLM response ({len(raw)} chars)")
-        return _extract_json(raw)
+        return _validate_outline_data(_extract_json(raw))
 
     def _generate_chapter(
         self,
@@ -209,7 +293,6 @@ class StoryEngine:
     ) -> Chapter:
         print(f"[StoryEngine] Generating chapter {chapter_number}: {chapter_title}")
 
-        # 构建完整的上下文：记忆 + 所有前章摘要
         memory_context = _build_memory_context(memory)
 
         prompt = build_chapter_prompt(
@@ -221,9 +304,10 @@ class StoryEngine:
             previous_summary=memory_context,
             next_summary=next_summary,
         )
+
         raw = self.llm.generate(prompt, CHAPTER_SYSTEM_PROMPT)
         print(f"[StoryEngine] Chapter {chapter_number} LLM response ({len(raw)} chars)")
-        data = _extract_json(raw)
+        data = _validate_chapter_data(_extract_json(raw), chapter_number, chapter_title)
 
         return Chapter(
             title=data["title"],
@@ -258,6 +342,7 @@ class StoryEngine:
             previous_summary=memory_context,
             next_summary=next_summary,
         )
+
         raw = self.llm.generate(prompt, REWRITE_SYSTEM_PROMPT)
         print(f"[StoryEngine] Rewrite LLM response ({len(raw)} chars)")
-        return _extract_json(raw)
+        return _validate_chapter_data(_extract_json(raw), chapter_number, chapter_title)

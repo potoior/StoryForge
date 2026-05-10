@@ -7,7 +7,7 @@ const STYLES = [
   { value: 'mystery', label: '悬疑' },
 ];
 
-export default function CreateStoryModal({ onSubmit, onClose, loading }) {
+export default function CreateStoryModal({ onSubmit, onClose, loading, progress }) {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('default');
@@ -178,12 +178,36 @@ export default function CreateStoryModal({ onSubmit, onClose, loading }) {
             </button>
           </div>
 
+          {loading && progress && (
+            <div className="progress-section">
+              <div className="progress-bar-container">
+                <div
+                  className="progress-bar-fill"
+                  style={{
+                    width: progress.total > 0
+                      ? `${Math.round((progress.current / progress.total) * 100)}%`
+                      : '10%',
+                  }}
+                />
+              </div>
+              <div className="progress-text">
+                {progress.message}
+                {progress.total > 0 && ` (${progress.current}/${progress.total})`}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="btn btn-outline" onClick={onClose}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={onClose}
+              disabled={loading}
+            >
               取消
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? '创建中...' : '创建故事'}
+              {loading ? '生成中...' : '创建故事'}
             </button>
           </div>
         </form>

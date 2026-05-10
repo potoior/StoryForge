@@ -1,4 +1,6 @@
+import json
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from ..models import Story, StoryCreateRequest, ChapterRewriteRequest, ChapterAddRequest
 from ..story_engine import StoryEngine
 from ..llm_client import create_llm_client
@@ -17,6 +19,31 @@ async def create_story(request: StoryCreateRequest):
     story = engine.create_story(request)
     storage.save_story(story)
     return story
+
+
+@router.post("/stories/stream")
+async def create_story_stream(request: StoryCreateRequest):
+    """SSE 流式生成故事，实时返回进度和章节内容。"""
+
+    def event_generator():
+        engine = _get_engine()
+        for event in engine.create_story_streaming(request):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+            # 生成完成时保存故事
+            if event["type"] == "done":
+                story = Story(**event["story"])
+                storage.save_story(story)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/stories", response_model=list[Story])
