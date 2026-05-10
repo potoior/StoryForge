@@ -8,6 +8,7 @@ import EditStoryModal from './components/EditStoryModal';
 import StoryPreview from './components/StoryPreview';
 import StoryVisualization from './components/StoryVisualization';
 import WorldBuilding from './components/WorldBuilding';
+import Notepad from './components/Notepad';
 import Toast from './components/Toast';
 
 const API = '/api';
@@ -29,6 +30,7 @@ export default function App() {
   const [vizMode, setVizMode] = useState(false);
   const [worldMode, setWorldMode] = useState(false);
   const [saveTrigger, setSaveTrigger] = useState(0);
+  const [showNotepad, setShowNotepad] = useState(false);
   const memoryTimerRef = useRef(null);
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
@@ -49,7 +51,7 @@ export default function App() {
       loadStory(savedId);
     }
   }, []);
-  const hasOpenModal = showCreateModal || showAddChapterModal || showEditModal;
+  const hasOpenModal = showCreateModal || showAddChapterModal || showEditModal || showNotepad;
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -57,6 +59,7 @@ export default function App() {
       // Escape: close any open modal or mode
       if (e.key === 'Escape') {
         if (showStoryList) setShowStoryList(false);
+        else if (showNotepad) setShowNotepad(false);
         else if (previewMode) setPreviewMode(false);
         else if (vizMode) setVizMode(false);
         else if (worldMode) setWorldMode(false);
@@ -90,7 +93,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCreateModal, showAddChapterModal, showEditModal, showStoryList, hasOpenModal, previewMode, vizMode, worldMode, story, activeChapterId]);
+  }, [showCreateModal, showAddChapterModal, showEditModal, showStoryList, showNotepad, hasOpenModal, previewMode, vizMode, worldMode, story, activeChapterId]);
 
   const fetchStoryList = useCallback(async () => {
     try {
@@ -412,6 +415,11 @@ export default function App() {
           <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
             新建故事
           </button>
+          {story && (
+            <button className="btn btn-outline" onClick={() => setShowNotepad(true)}>
+              记事本
+            </button>
+          )}
         </div>
       </header>
 
@@ -483,6 +491,13 @@ export default function App() {
           story={story}
           onSubmit={handleUpdateStory}
           onClose={() => setShowEditModal(false)}
+        />
+      )}
+
+      {showNotepad && story && (
+        <Notepad
+          storyId={story.story_id}
+          onClose={() => setShowNotepad(false)}
         />
       )}
 
