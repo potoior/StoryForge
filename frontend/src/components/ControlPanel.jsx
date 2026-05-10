@@ -15,6 +15,8 @@ export default function ControlPanel({
   onExport,
   loading,
   progress,
+  previewMode,
+  onTogglePreview,
 }) {
   const [style, setStyle] = useState('default');
   const [rewriteInstruction, setRewriteInstruction] = useState('');
@@ -85,6 +87,13 @@ export default function ControlPanel({
           </div>
 
           <div className="panel-section">
+            <button
+              className="btn btn-outline"
+              onClick={onTogglePreview}
+              disabled={loading}
+            >
+              {previewMode ? '返回编辑' : '全文预览'}
+            </button>
             <button
               className="btn btn-outline"
               onClick={() => onExport('markdown')}

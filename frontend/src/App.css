@@ -598,3 +598,143 @@ textarea.input {
 .memory-list.unresolved li {
   color: var(--danger);
 }
+
+/* Story Browser Dropdown */
+.story-browser {
+  position: relative;
+}
+
+.story-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+}
+
+.story-dropdown-empty {
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.story-dropdown-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.story-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.story-dropdown-item:hover {
+  background: rgba(108, 92, 231, 0.1);
+}
+
+.story-dropdown-item.active {
+  background: rgba(108, 92, 231, 0.2);
+}
+
+.story-dropdown-title {
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.story-dropdown-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Story Preview Mode */
+.preview-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 48px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+}
+
+.preview-header h2 {
+  font-size: 1.8rem;
+  color: var(--primary);
+}
+
+.preview-stats {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  display: block;
+}
+
+.preview-characters {
+  margin-bottom: 32px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+}
+
+.preview-characters h3 {
+  font-size: 1rem;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.preview-char-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preview-char-tag {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.preview-chapter {
+  margin-bottom: 40px;
+}
+
+.preview-chapter h3 {
+  font-size: 1.3rem;
+  color: var(--text);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-chapter-summary {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.preview-chapter-content p {
+  line-height: 1.9;
+  margin-bottom: 16px;
+  color: var(--text);
+  font-size: 1rem;
+}

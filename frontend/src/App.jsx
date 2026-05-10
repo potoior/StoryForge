@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import ChapterList from './components/ChapterList';
 import ChapterEditor from './components/ChapterEditor';
 import ControlPanel from './components/ControlPanel';
 import CreateStoryModal from './components/CreateStoryModal';
 import AddChapterModal from './components/AddChapterModal';
+import StoryPreview from './components/StoryPreview';
 import Toast from './components/Toast';
 
 const API = '/api';
@@ -18,8 +19,34 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [storyList, setStoryList] = useState([]);
+  const [showStoryList, setShowStoryList] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
+
+  const fetchStoryList = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/stories`);
+      if (res.ok) setStoryList(await res.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchStoryList(); }, [fetchStoryList]);
+
+  const loadStory = async (storyId) => {
+    try {
+      const res = await fetch(`${API}/stories/${storyId}`);
+      if (!res.ok) throw new Error('加载失败');
+      const data = await res.json();
+      setStory(data);
+      setActiveChapterId(data.chapters.length > 0 ? data.chapters[0].id : null);
+      setPreviewMode(false);
+      setShowStoryList(false);
+    } catch (err) {
+      addToast('加载故事失败：' + err.message, 'error');
+    }
+  };
 
   const addToast = useCallback((message, type = 'info', duration = 3000) => {
     const id = ++toastId;
@@ -89,6 +116,7 @@ export default function App() {
               }
               setShowCreateModal(false);
               addToast('故事创建完成！', 'success');
+              fetchStoryList();
             }
           } catch {}
         }
@@ -228,6 +256,32 @@ export default function App() {
       <header className="header">
         <h1>AI 剧情工作室</h1>
         <div className="header-actions">
+          <div className="story-browser">
+            <button
+              className="btn btn-outline"
+              onClick={() => setShowStoryList(!showStoryList)}
+            >
+              {story ? story.title : '打开故事'} ▾
+            </button>
+            {showStoryList && (
+              <div className="story-dropdown">
+                {storyList.length === 0 ? (
+                  <div className="story-dropdown-empty">暂无已保存的故事</div>
+                ) : (
+                  storyList.map((s) => (
+                    <div
+                      key={s.story_id}
+                      className={`story-dropdown-item ${story?.story_id === s.story_id ? 'active' : ''}`}
+                      onClick={() => loadStory(s.story_id)}
+                    >
+                      <span className="story-dropdown-title">{s.title}</span>
+                      <span className="story-dropdown-meta">{s.chapters.length} 章</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
             新建故事
           </button>
@@ -240,13 +294,17 @@ export default function App() {
           <ChapterList
             chapters={story?.chapters || []}
             activeId={activeChapterId}
-            onSelect={setActiveChapterId}
+            onSelect={(id) => { setActiveChapterId(id); setPreviewMode(false); }}
             onAddChapter={() => setShowAddChapterModal(true)}
             onDeleteChapter={handleDeleteChapter}
           />
         </aside>
 
-        <ChapterEditor chapter={activeChapter} onSave={handleSaveChapter} />
+        {previewMode && story ? (
+          <StoryPreview story={story} onClose={() => setPreviewMode(false)} />
+        ) : (
+          <ChapterEditor chapter={activeChapter} onSave={handleSaveChapter} />
+        )}
 
         <ControlPanel
           story={story}
@@ -256,6 +314,8 @@ export default function App() {
           onExport={handleExport}
           loading={loading}
           progress={progress}
+          previewMode={previewMode}
+          onTogglePreview={() => setPreviewMode(!previewMode)}
         />
       </div>
 

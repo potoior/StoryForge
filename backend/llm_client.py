@@ -14,7 +14,7 @@ class BaseLLMClient(ABC):
 class OpenAIClient(BaseLLMClient):
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         from openai import OpenAI
-        self.client = OpenAI(api_key=api_key or config.OPENAI_API_KEY)
+        self.client = OpenAI(api_key=api_key or config.OPENAI_API_KEY, timeout=config.LLM_TIMEOUT)
         self.model = model or config.OPENAI_MODEL
 
     def generate(self, prompt: str, system_prompt: str = "") -> str:
@@ -47,6 +47,7 @@ class OpenAICompatibleClient(BaseLLMClient):
         self.client = OpenAI(
             base_url=base_url or config.OPENAI_COMPATIBLE_BASE_URL,
             api_key=api_key or config.OPENAI_COMPATIBLE_API_KEY,
+            timeout=config.LLM_TIMEOUT,
         )
         self.model = model or config.OPENAI_COMPATIBLE_MODEL
 
@@ -68,7 +69,10 @@ class OpenAICompatibleClient(BaseLLMClient):
 class ClaudeClient(BaseLLMClient):
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         import anthropic
-        self.client = anthropic.Anthropic(api_key=api_key or config.ANTHROPIC_API_KEY)
+        self.client = anthropic.Anthropic(
+            api_key=api_key or config.ANTHROPIC_API_KEY,
+            timeout=config.LLM_TIMEOUT,
+        )
         self.model = model or config.ANTHROPIC_MODEL
 
     def generate(self, prompt: str, system_prompt: str = "") -> str:
