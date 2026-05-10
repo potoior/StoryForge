@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import ChapterList from './components/ChapterList';
 import ChapterEditor from './components/ChapterEditor';
 import ControlPanel from './components/ControlPanel';
@@ -7,6 +7,7 @@ import AddChapterModal from './components/AddChapterModal';
 import EditStoryModal from './components/EditStoryModal';
 import StoryPreview from './components/StoryPreview';
 import StoryVisualization from './components/StoryVisualization';
+import WorldBuilding from './components/WorldBuilding';
 import Toast from './components/Toast';
 
 const API = '/api';
@@ -26,20 +27,39 @@ export default function App() {
   const [previewMode, setPreviewMode] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [vizMode, setVizMode] = useState(false);
+  const [worldMode, setWorldMode] = useState(false);
   const [saveTrigger, setSaveTrigger] = useState(0);
+  const memoryTimerRef = useRef(null);
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
+
+  // Persist current story ID to localStorage
+  useEffect(() => {
+    if (story?.story_id) {
+      localStorage.setItem('current_story_id', story.story_id);
+    } else {
+      localStorage.removeItem('current_story_id');
+    }
+  }, [story?.story_id]);
+
+  // Restore story on mount
+  useEffect(() => {
+    const savedId = localStorage.getItem('current_story_id');
+    if (savedId) {
+      loadStory(savedId);
+    }
+  }, []);
   const hasOpenModal = showCreateModal || showAddChapterModal || showEditModal;
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Escape: close any open modal
+      // Escape: close any open modal or mode
       if (e.key === 'Escape') {
-        if (showCreateModal) setShowCreateModal(false);
-        else if (showAddChapterModal) setShowAddChapterModal(false);
-        else if (showEditModal) setShowEditModal(false);
-        else if (showStoryList) setShowStoryList(false);
+        if (showStoryList) setShowStoryList(false);
+        else if (previewMode) setPreviewMode(false);
+        else if (vizMode) setVizMode(false);
+        else if (worldMode) setWorldMode(false);
         return;
       }
 
@@ -70,7 +90,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCreateModal, showAddChapterModal, showEditModal, showStoryList, hasOpenModal, previewMode, story, activeChapterId]);
+  }, [showCreateModal, showAddChapterModal, showEditModal, showStoryList, hasOpenModal, previewMode, vizMode, worldMode, story, activeChapterId]);
 
   const fetchStoryList = useCallback(async () => {
     try {
@@ -86,6 +106,7 @@ export default function App() {
       const res = await fetch(`${API}/stories/${storyId}`);
       if (!res.ok) throw new Error('加载失败');
       const data = await res.json();
+      console.log('[loadStory] Loaded:', data.story_id, 'world:', data.world);
       setStory(data);
       setActiveChapterId(data.chapters.length > 0 ? data.chapters[0].id : null);
       setPreviewMode(false);
@@ -164,6 +185,8 @@ export default function App() {
               setShowCreateModal(false);
               addToast('故事创建完成！', 'success');
               fetchStoryList();
+            } else if (event.type === 'error') {
+              addToast('生成失败：' + event.message, 'error');
             }
           } catch {}
         }
@@ -186,10 +209,31 @@ export default function App() {
       });
       if (!res.ok) throw new Error('保存失败');
       const updated = await res.json();
-      setStory({
-        ...story,
-        chapters: story.chapters.map((c) => (c.id === chapterId ? updated : c)),
+      setStory((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          chapters: prev.chapters.map((c) => (c.id === chapterId ? updated : c)),
+        };
       });
+
+      // Debounced memory re-extraction after manual edit (5s after last save)
+      if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
+      memoryTimerRef.current = setTimeout(async () => {
+        try {
+          const memRes = await fetch(`${API}/stories/${story.story_id}/chapters/${chapterId}/update-memory`, {
+            method: 'POST',
+          });
+          if (memRes.ok) {
+            const memData = await memRes.json();
+            setStory((prev) => {
+              if (!prev) return prev;
+              return { ...prev, memory: memData.memory };
+            });
+          }
+        } catch {}
+      }, 5000);
+
       return true;
     } catch (err) {
       addToast('保存失败：' + err.message, 'error');
@@ -230,6 +274,8 @@ export default function App() {
             } else if (event.type === 'done') {
               setStory(event.story);
               addToast('章节重写完成！', 'success');
+            } else if (event.type === 'error') {
+              addToast('重写失败：' + event.message, 'error');
             }
           } catch {}
         }
@@ -375,7 +421,7 @@ export default function App() {
           <ChapterList
             chapters={story?.chapters || []}
             activeId={activeChapterId}
-            onSelect={(id) => { setActiveChapterId(id); setPreviewMode(false); }}
+            onSelect={(id) => { setActiveChapterId(id); setPreviewMode(false); setVizMode(false); setWorldMode(false); }}
             onAddChapter={() => setShowAddChapterModal(true)}
             onDeleteChapter={handleDeleteChapter}
           />
@@ -385,6 +431,12 @@ export default function App() {
           <StoryPreview story={story} onClose={() => setPreviewMode(false)} />
         ) : vizMode && story ? (
           <StoryVisualization story={story} />
+        ) : worldMode && story ? (
+          <WorldBuilding
+            story={story}
+            onUpdate={(updated) => setStory(updated)}
+            addToast={addToast}
+          />
         ) : (
           <ChapterEditor chapter={activeChapter} onSave={handleSaveChapter} saveTrigger={saveTrigger} />
         )}
@@ -400,9 +452,11 @@ export default function App() {
           loading={loading}
           progress={progress}
           previewMode={previewMode}
-          onTogglePreview={() => { setPreviewMode(!previewMode); setVizMode(false); }}
+          onTogglePreview={() => { setPreviewMode(!previewMode); setVizMode(false); setWorldMode(false); }}
           vizMode={vizMode}
-          onToggleViz={() => { setVizMode(!vizMode); setPreviewMode(false); }}
+          onToggleViz={() => { setVizMode(!vizMode); setPreviewMode(false); setWorldMode(false); }}
+          worldMode={worldMode}
+          onToggleWorld={() => { setWorldMode(!worldMode); setPreviewMode(false); setVizMode(false); }}
         />
       </div>
 

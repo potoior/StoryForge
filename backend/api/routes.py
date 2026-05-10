@@ -1,7 +1,9 @@
 import json
+import asyncio
+import threading
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from ..models import Story, StoryCreateRequest, ChapterRewriteRequest, ChapterAddRequest, StoryUpdateRequest
+from ..models import Story, StoryCreateRequest, ChapterRewriteRequest, ChapterAddRequest, StoryUpdateRequest, WorldUpdateRequest
 from ..story_engine import StoryEngine
 from ..llm_client import create_llm_client
 from .. import storage
@@ -25,15 +27,40 @@ async def create_story(request: StoryCreateRequest):
 async def create_story_stream(request: StoryCreateRequest):
     """SSE 流式生成故事，实时返回进度和章节内容。"""
 
-    def event_generator():
-        engine = _get_engine()
-        for event in engine.create_story_streaming(request):
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+    queue = asyncio.Queue()
 
-            # 生成完成时保存故事
-            if event["type"] == "done":
-                story = Story(**event["story"])
-                storage.save_story(story)
+    def run_engine():
+        try:
+            engine = _get_engine()
+            for event in engine.create_story_streaming(request):
+                asyncio.run_coroutine_threadsafe(queue.put(("event", event)), loop)
+            asyncio.run_coroutine_threadsafe(queue.put(("done", None)), loop)
+        except Exception as e:
+            asyncio.run_coroutine_threadsafe(queue.put(("error", str(e))), loop)
+
+    loop = asyncio.get_event_loop()
+    thread = threading.Thread(target=run_engine, daemon=True)
+    thread.start()
+
+    async def event_generator():
+        while True:
+            try:
+                kind, data = await asyncio.wait_for(queue.get(), timeout=30)
+            except asyncio.TimeoutError:
+                # 发送心跳保持连接
+                yield ": heartbeat\n\n"
+                continue
+
+            if kind == "done":
+                break
+            elif kind == "error":
+                yield f"data: {json.dumps({'type': 'error', 'message': data}, ensure_ascii=False)}\n\n"
+                break
+            elif kind == "event":
+                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                if data.get("type") == "done":
+                    story = Story(**data["story"])
+                    storage.save_story(story)
 
     return StreamingResponse(
         event_generator(),
@@ -78,6 +105,27 @@ async def update_story(story_id: str, request: StoryUpdateRequest):
     return story
 
 
+@router.put("/stories/{story_id}/world", response_model=Story)
+async def update_world(story_id: str, request: WorldUpdateRequest):
+    story = storage.load_story(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    if request.world_lore is not None:
+        story.world.world_lore = request.world_lore
+    if request.locations is not None:
+        story.world.locations = request.locations
+    if request.factions is not None:
+        story.world.factions = request.factions
+    if request.relationships is not None:
+        story.world.relationships = request.relationships
+    if request.notes is not None:
+        story.world.notes = request.notes
+
+    storage.save_story(story)
+    return story
+
+
 @router.put("/stories/{story_id}/chapters/{chapter_id}")
 async def edit_chapter(story_id: str, chapter_id: str, body: dict):
     story = storage.load_story(story_id)
@@ -99,6 +147,27 @@ async def edit_chapter(story_id: str, chapter_id: str, body: dict):
     raise HTTPException(status_code=404, detail="Chapter not found")
 
 
+@router.post("/stories/{story_id}/chapters/{chapter_id}/update-memory", response_model=Story)
+async def update_chapter_memory(story_id: str, chapter_id: str):
+    """Re-extract story memory from a chapter's current content (e.g., after manual edits)."""
+    story = storage.load_story(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    chapter_idx = None
+    for i, ch in enumerate(story.chapters):
+        if ch.id == chapter_id:
+            chapter_idx = i
+            break
+    if chapter_idx is None:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    engine = _get_engine()
+    story = engine.update_memory_for_chapter(story, chapter_idx)
+    storage.save_story(story)
+    return story
+
+
 @router.post("/stories/{story_id}/rewrite", response_model=Story)
 async def rewrite_chapter(story_id: str, request: ChapterRewriteRequest):
     story = storage.load_story(story_id)
@@ -118,13 +187,39 @@ async def rewrite_chapter_stream(story_id: str, request: ChapterRewriteRequest):
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
 
-    def event_generator():
-        engine = _get_engine()
-        for event in engine.rewrite_chapter_streaming(story, request):
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-            if event["type"] == "done":
-                updated_story = Story(**event["story"])
-                storage.save_story(updated_story)
+    queue = asyncio.Queue()
+
+    def run_engine():
+        try:
+            engine = _get_engine()
+            for event in engine.rewrite_chapter_streaming(story, request):
+                asyncio.run_coroutine_threadsafe(queue.put(("event", event)), loop)
+            asyncio.run_coroutine_threadsafe(queue.put(("done", None)), loop)
+        except Exception as e:
+            asyncio.run_coroutine_threadsafe(queue.put(("error", str(e))), loop)
+
+    loop = asyncio.get_event_loop()
+    thread = threading.Thread(target=run_engine, daemon=True)
+    thread.start()
+
+    async def event_generator():
+        while True:
+            try:
+                kind, data = await asyncio.wait_for(queue.get(), timeout=30)
+            except asyncio.TimeoutError:
+                yield ": heartbeat\n\n"
+                continue
+
+            if kind == "done":
+                break
+            elif kind == "error":
+                yield f"data: {json.dumps({'type': 'error', 'message': data}, ensure_ascii=False)}\n\n"
+                break
+            elif kind == "event":
+                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                if data.get("type") == "done":
+                    updated_story = Story(**data["story"])
+                    storage.save_story(updated_story)
 
     return StreamingResponse(
         event_generator(),

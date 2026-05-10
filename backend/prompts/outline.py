@@ -15,6 +15,7 @@ def build_outline_prompt(
     characters: list[dict],
     chapter_count: int,
     style: str = "default",
+    language: str = "zh",
 ) -> str:
     char_descriptions = "\n".join(
         f"- {c['name']}: {c['description']}" + (f" (Personality: {c.get('personality', 'N/A')})" if c.get('personality') else "")
@@ -29,7 +30,11 @@ def build_outline_prompt(
     }
     style_text = style_instructions.get(style, style_instructions["default"])
 
+    lang_instruction = "All output (title, chapter titles, summaries) MUST be in Chinese (中文)." if language == "zh" else "All output (title, chapter titles, summaries) MUST be in English."
+
     return f"""Create a story outline with exactly {chapter_count} chapters.
+
+LANGUAGE: {lang_instruction}
 
 STORY CONCEPT:
 {prompt}

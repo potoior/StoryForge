@@ -92,6 +92,31 @@ def _build_memory_context(memory: StoryMemory) -> str:
     return "\n\n".join(parts) if parts else "No story memory yet."
 
 
+def _build_world_context(world) -> str:
+    """将世界观设定转为可读的上下文文本。"""
+    parts = []
+
+    if world.world_lore:
+        parts.append(f"WORLD SETTING:\n{world.world_lore}")
+
+    if world.locations:
+        locs = "\n".join(f"  - {l['name']}: {l.get('description', '')}" for l in world.locations)
+        parts.append(f"LOCATIONS:\n{locs}")
+
+    if world.factions:
+        facs = "\n".join(f"  - {f['name']}: {f.get('description', '')}" for f in world.factions)
+        parts.append(f"FACTIONS/ORGANIZATIONS:\n{facs}")
+
+    if world.relationships:
+        rels = "\n".join(f"  - {r.character_a} ↔ {r.character_b}: {r.relation}" for r in world.relationships)
+        parts.append(f"CHARACTER RELATIONSHIPS (user-defined):\n{rels}")
+
+    if world.notes:
+        parts.append(f"ADDITIONAL NOTES:\n{world.notes}")
+
+    return "\n\n".join(parts) if parts else ""
+
+
 class StoryEngine:
     def __init__(self, llm_client: BaseLLMClient):
         self.llm = llm_client
@@ -106,6 +131,7 @@ class StoryEngine:
             characters=request.characters,
             outline=request.outline,
             style=request.style,
+            language=request.language or "zh",
         )
 
         user_outline = [o.model_dump() for o in request.outline]
@@ -123,6 +149,7 @@ class StoryEngine:
                 style=request.style or "default",
                 memory=story.memory,
                 next_summary=next_summary,
+                language=request.language or "zh",
             )
             story.chapters.append(chapter)
             story.memory = self._update_memory(story, chapter)
@@ -142,6 +169,7 @@ class StoryEngine:
             characters=request.characters,
             outline=request.outline,
             style=request.style,
+            language=request.language or "zh",
         )
 
         user_outline = [o.model_dump() for o in request.outline]
@@ -170,6 +198,7 @@ class StoryEngine:
                 style=request.style or "default",
                 memory=story.memory,
                 next_summary=next_summary,
+                language=request.language or "zh",
             )
             story.chapters.append(chapter)
 
@@ -203,6 +232,8 @@ class StoryEngine:
         target = story.chapters[target_idx]
         next_summary = story.chapters[target_idx + 1].summary if target_idx < len(story.chapters) - 1 else ""
 
+        world_ctx = _build_world_context(story.world)
+
         result = self._rewrite_chapter(
             chapter_number=target.chapter_number,
             chapter_title=target.title,
@@ -212,6 +243,8 @@ class StoryEngine:
             style=request.style or story.style or "default",
             memory=story.memory,
             next_summary=next_summary,
+            world_context=world_ctx,
+            language=story.language or "zh",
         )
 
         new_chapter = Chapter(
@@ -241,6 +274,8 @@ class StoryEngine:
 
         yield {"type": "status", "message": f"正在重写第 {target.chapter_number} 章：{target.title}..."}
 
+        world_ctx = _build_world_context(story.world)
+
         result = self._rewrite_chapter(
             chapter_number=target.chapter_number,
             chapter_title=target.title,
@@ -250,6 +285,8 @@ class StoryEngine:
             style=request.style or story.style or "default",
             memory=story.memory,
             next_summary=next_summary,
+            world_context=world_ctx,
+            language=story.language or "zh",
         )
 
         yield {"type": "progress", "message": "重写完成，正在更新记忆..."}
@@ -267,8 +304,17 @@ class StoryEngine:
 
         yield {"type": "done", "story": story.model_dump()}
 
+    def update_memory_for_chapter(self, story: Story, chapter_index: int) -> Story:
+        """Re-extract memory from a specific chapter (e.g., after manual edits)."""
+        if chapter_index < 0 or chapter_index >= len(story.chapters):
+            raise ValueError(f"Invalid chapter index: {chapter_index}")
+        chapter = story.chapters[chapter_index]
+        story.memory = self._update_memory(story, chapter)
+        return story
+
     def add_chapter(self, story: Story, title: str, summary: str) -> Story:
         chapter_number = len(story.chapters) + 1
+        world_ctx = _build_world_context(story.world)
 
         chapter = self._generate_chapter(
             chapter_number=chapter_number,
@@ -278,6 +324,8 @@ class StoryEngine:
             style=story.style or "default",
             memory=story.memory,
             next_summary="",
+            world_context=world_ctx,
+            language=story.language or "zh",
         )
         story.chapters.append(chapter)
         story.memory = self._update_memory(story, chapter)
@@ -317,6 +365,7 @@ class StoryEngine:
             characters=[c.model_dump() for c in request.characters],
             chapter_count=len(request.outline),
             style=request.style or "default",
+            language=request.language or "zh",
         )
         raw = self.llm.generate(prompt, OUTLINE_SYSTEM_PROMPT)
         print(f"[StoryEngine] Outline LLM response ({len(raw)} chars)")
@@ -331,10 +380,14 @@ class StoryEngine:
         style: str,
         memory: StoryMemory,
         next_summary: str,
+        world_context: str = "",
+        language: str = "zh",
     ) -> Chapter:
         print(f"[StoryEngine] Generating chapter {chapter_number}: {chapter_title}")
 
         memory_context = _build_memory_context(memory)
+        if world_context:
+            memory_context = world_context + "\n\n" + memory_context
 
         prompt = build_chapter_prompt(
             chapter_number=chapter_number,
@@ -344,6 +397,7 @@ class StoryEngine:
             style=style,
             previous_summary=memory_context,
             next_summary=next_summary,
+            language=language,
         )
 
         raw = self.llm.generate(prompt, CHAPTER_SYSTEM_PROMPT)
@@ -368,10 +422,14 @@ class StoryEngine:
         style: str,
         memory: StoryMemory,
         next_summary: str,
+        world_context: str = "",
+        language: str = "zh",
     ) -> dict:
         print(f"[StoryEngine] Rewriting chapter {chapter_number}: {chapter_title}")
 
         memory_context = _build_memory_context(memory)
+        if world_context:
+            memory_context = world_context + "\n\n" + memory_context
 
         prompt = build_rewrite_prompt(
             chapter_number=chapter_number,
@@ -382,6 +440,7 @@ class StoryEngine:
             style=style,
             previous_summary=memory_context,
             next_summary=next_summary,
+            language=language,
         )
 
         raw = self.llm.generate(prompt, REWRITE_SYSTEM_PROMPT)

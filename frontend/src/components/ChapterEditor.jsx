@@ -4,9 +4,12 @@ export default function ChapterEditor({ chapter, onSave, saveTrigger }) {
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
-  const [saveStatus, setSaveStatus] = useState(''); // '' | 'saving' | 'saved'
+  const [saveStatus, setSaveStatus] = useState('');
   const timerRef = useRef(null);
   const latestRef = useRef({ title: '', summary: '', content: '' });
+
+  // Track the current chapter id for save-on-switch
+  const chapterIdRef = useRef(chapter?.id);
 
   useEffect(() => {
     if (chapter) {
@@ -17,47 +20,49 @@ export default function ChapterEditor({ chapter, onSave, saveTrigger }) {
     }
   }, [chapter?.id]);
 
-  // 更新最新值 ref
   latestRef.current = { title, summary, content };
 
-  const doSave = useCallback(async () => {
-    if (!chapter) return;
-    const { title: t, summary: s, content: c } = latestRef.current;
-    if (t === chapter.title && s === chapter.summary && c === chapter.content) return;
+  const doSave = useCallback(async (targetId, data) => {
+    if (!targetId) return;
+    const { title: t, summary: s, content: c } = data || latestRef.current;
+    // Skip if nothing changed
+    if (chapter && t === chapter.title && s === chapter.summary && c === chapter.content) return;
     setSaveStatus('saving');
-    const ok = await onSave(chapter.id, { title: t, summary: s, content: c });
+    const ok = await onSave(targetId, { title: t, summary: s, content: c });
     setSaveStatus(ok ? 'saved' : '');
     if (ok) setTimeout(() => setSaveStatus(''), 2000);
-  }, [chapter?.id, onSave]);
+  }, [chapter, onSave]);
 
   const scheduleSave = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(doSave, 1500);
+    const id = chapterIdRef.current;
+    const data = latestRef.current;
+    timerRef.current = setTimeout(() => doSave(id, data), 1500);
   }, [doSave]);
 
-  // 组件卸载时清理
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
-  // Ctrl+S: immediate save
+  // Ctrl+S
   useEffect(() => {
     if (saveTrigger > 0 && chapter) {
       if (timerRef.current) clearTimeout(timerRef.current);
-      doSave();
+      doSave(chapter.id, latestRef.current);
     }
   }, [saveTrigger]);
 
-  // 切换章节时保存上一章
-  const prevChapterIdRef = useRef(chapter?.id);
+  // Save previous chapter on switch
   useEffect(() => {
-    if (prevChapterIdRef.current && prevChapterIdRef.current !== chapter?.id) {
+    const prevId = chapterIdRef.current;
+    if (prevId && prevId !== chapter?.id) {
       if (timerRef.current) clearTimeout(timerRef.current);
-      doSave();
+      // Save using the PREVIOUS chapter id and current (still old) content
+      doSave(prevId, latestRef.current);
     }
-    prevChapterIdRef.current = chapter?.id;
+    chapterIdRef.current = chapter?.id;
   }, [chapter?.id]);
 
   if (!chapter) {

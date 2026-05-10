@@ -24,6 +24,7 @@ def build_rewrite_prompt(
     style: str = "default",
     previous_summary: str = "",
     next_summary: str = "",
+    language: str = "zh",
 ) -> str:
     char_descriptions = "\n".join(
         f"- {c['name']}: {c['description']}" + (f" (Personality: {c.get('personality', 'N/A')})" if c.get('personality') else "")
@@ -38,6 +39,8 @@ def build_rewrite_prompt(
     }
     style_text = style_instructions.get(style, style_instructions["default"])
 
+    lang_instruction = "All output (title, summary, content) MUST be written in Chinese (中文)." if language == "zh" else "All output (title, summary, content) MUST be written in English."
+
     context_parts = []
     if previous_summary:
         context_parts.append(f"STORY MEMORY (accumulated context from all previous chapters):\n{previous_summary}")
@@ -46,6 +49,8 @@ def build_rewrite_prompt(
     context = "\n\n".join(context_parts) if context_parts else "No surrounding chapter context available."
 
     return f"""Rewrite Chapter {chapter_number} based on the modification instructions. Write a FULL, detailed chapter — not a summary.
+
+LANGUAGE: {lang_instruction}
 
 CURRENT CHAPTER:
 Title: {chapter_title}

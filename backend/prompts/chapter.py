@@ -23,6 +23,7 @@ def build_chapter_prompt(
     style: str = "default",
     previous_summary: str = "",
     next_summary: str = "",
+    language: str = "zh",
 ) -> str:
     char_descriptions = "\n".join(
         f"- {c['name']}: {c['description']}" + (f" (Personality: {c.get('personality', 'N/A')})" if c.get('personality') else "")
@@ -37,6 +38,8 @@ def build_chapter_prompt(
     }
     style_text = style_instructions.get(style, style_instructions["default"])
 
+    lang_instruction = "All output (title, summary, content) MUST be written in Chinese (中文)." if language == "zh" else "All output (title, summary, content) MUST be written in English."
+
     context_parts = []
     if previous_summary:
         context_parts.append(f"STORY MEMORY (accumulated context from all previous chapters):\n{previous_summary}")
@@ -45,6 +48,8 @@ def build_chapter_prompt(
     context = "\n\n".join(context_parts) if context_parts else "This is the first/only chapter."
 
     return f"""Write Chapter {chapter_number} of the story. This should be a FULL, detailed chapter — not a summary or outline.
+
+LANGUAGE: {lang_instruction}
 
 CHAPTER TO WRITE:
 Title: {chapter_title}

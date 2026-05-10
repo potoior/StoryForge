@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const STYLES = [
   { value: 'default', label: '默认' },
@@ -7,10 +7,16 @@ const STYLES = [
   { value: 'mystery', label: '悬疑' },
 ];
 
+const LANGUAGES = [
+  { value: 'zh', label: '中文' },
+  { value: 'en', label: 'English' },
+];
+
 export default function CreateStoryModal({ onSubmit, onClose, loading, progress }) {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('default');
+  const [language, setLanguage] = useState('zh');
   const [characters, setCharacters] = useState([
     { name: '', description: '', personality: '' },
   ]);
@@ -46,6 +52,31 @@ export default function CreateStoryModal({ onSubmit, onClose, loading, progress 
     setOutline(updated);
   };
 
+  const hasContent = title.trim() || prompt.trim() ||
+    characters.some((c) => c.name.trim() || c.description.trim()) ||
+    outline.some((o) => o.title.trim() || o.summary.trim());
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (hasContent) {
+          if (!window.confirm('当前有未保存的内容，确定要关闭吗？')) return;
+        }
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasContent, onClose]);
+
+  const handleOverlayClick = () => {
+    if (hasContent) {
+      if (!window.confirm('当前有未保存的内容，确定要关闭吗？')) return;
+    }
+    onClose();
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({
@@ -54,11 +85,12 @@ export default function CreateStoryModal({ onSubmit, onClose, loading, progress 
       characters: characters.filter((c) => c.name.trim()),
       outline: outline.filter((o) => o.title.trim()),
       style,
+      language,
     });
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>创建新故事</h2>
         <form onSubmit={handleSubmit}>
@@ -89,6 +121,15 @@ export default function CreateStoryModal({ onSubmit, onClose, loading, progress 
             <select className="select" value={style} onChange={(e) => setStyle(e.target.value)}>
               {STYLES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>生成语言</label>
+            <select className="select" value={language} onChange={(e) => setLanguage(e.target.value)}>
+              {LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
               ))}
             </select>
           </div>

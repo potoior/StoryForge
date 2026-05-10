@@ -21,6 +21,8 @@ export default function ControlPanel({
   onTogglePreview,
   vizMode,
   onToggleViz,
+  worldMode,
+  onToggleWorld,
 }) {
   const [style, setStyle] = useState('default');
   const [rewriteInstruction, setRewriteInstruction] = useState('');
@@ -104,6 +106,13 @@ export default function ControlPanel({
               disabled={loading}
             >
               {vizMode ? '返回编辑' : '故事图谱'}
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={onToggleWorld}
+              disabled={loading}
+            >
+              {worldMode ? '返回编辑' : '世界观搭建'}
             </button>
             <button
               className="btn btn-outline"

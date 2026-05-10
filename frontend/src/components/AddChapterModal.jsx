@@ -4,13 +4,22 @@ export default function AddChapterModal({ chapterNumber, onSubmit, onClose, load
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
 
+  const hasContent = title.trim() || summary.trim();
+
+  const handleOverlayClick = () => {
+    if (hasContent) {
+      if (!window.confirm('当前有未保存的内容，确定要关闭吗？')) return;
+    }
+    onClose();
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({ title, summary });
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 450 }}>
         <h2>添加第 {chapterNumber} 章</h2>
         <form onSubmit={handleSubmit}>

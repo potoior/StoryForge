@@ -33,6 +33,15 @@ class StoryMemory(BaseModel):
     unresolved_plots: List[str] = []  # 未解决的伏笔/悬念
 
 
+class WorldBuilding(BaseModel):
+    """世界观设定，由用户手动维护，AI 生成时作为参考"""
+    world_lore: str = ""  # 世界观背景描述
+    locations: List[dict] = []  # [{"name": "魔法森林", "description": "..."}]
+    factions: List[dict] = []  # [{"name": "光明教廷", "description": "..."}]
+    relationships: List[CharacterRelation] = []  # 用户定义的角色关系
+    notes: str = ""  # 其他设定备注
+
+
 class ChapterOutline(BaseModel):
     title: str
     summary: str
@@ -56,7 +65,9 @@ class Story(BaseModel):
     outline: List[ChapterOutline]
     chapters: List[Chapter] = []
     style: Optional[str] = "default"
+    language: Optional[str] = "zh"
     memory: StoryMemory = Field(default_factory=StoryMemory)
+    world: WorldBuilding = Field(default_factory=WorldBuilding)
 
 
 class StoryCreateRequest(BaseModel):
@@ -65,6 +76,7 @@ class StoryCreateRequest(BaseModel):
     characters: List[Character]
     outline: List[ChapterOutline]
     style: Optional[str] = "default"
+    language: Optional[str] = "zh"
 
 
 class ChapterRewriteRequest(BaseModel):
@@ -83,3 +95,11 @@ class StoryUpdateRequest(BaseModel):
     prompt: Optional[str] = None
     characters: Optional[List[Character]] = None
     style: Optional[str] = None
+
+
+class WorldUpdateRequest(BaseModel):
+    world_lore: Optional[str] = None
+    locations: Optional[List[dict]] = None
+    factions: Optional[List[dict]] = None
+    relationships: Optional[List[CharacterRelation]] = None
+    notes: Optional[str] = None
