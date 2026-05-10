@@ -3,7 +3,6 @@ __pycache__/
 .env
 node_modules/
 dist/
-output/*/chapters/
-output/*/story.json
+output/
 .DS_Store
 *.egg-info/
