@@ -792,3 +792,213 @@ textarea.input {
   color: var(--text);
   font-size: 1rem;
 }
+
+/* Story Visualization Panel */
+.viz-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.viz-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.viz-tab {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  border-bottom: 2px solid transparent;
+}
+
+.viz-tab:hover {
+  color: var(--text);
+}
+
+.viz-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.viz-content {
+  flex: 1;
+  overflow: auto;
+}
+
+.viz-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* Relationship Graph */
+.viz-graph-container {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+/* Plot Timeline */
+.viz-timeline {
+  padding: 24px 32px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.timeline-section {
+  margin-bottom: 32px;
+}
+
+.timeline-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.timeline-section-title.unresolved {
+  color: var(--danger);
+}
+
+.timeline-chars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-char-item {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+
+.timeline-char-name {
+  font-weight: 600;
+  color: var(--primary);
+  min-width: 80px;
+}
+
+.timeline-char-state {
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.timeline-chapters {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 32px;
+}
+
+.timeline-chapters::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.timeline-chapter {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -24px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--bg);
+  z-index: 1;
+}
+
+.timeline-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.timeline-ch-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.timeline-ch-summary {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.timeline-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.timeline-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.timeline-event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.timeline-plots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-plot-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  background: rgba(225, 112, 85, 0.08);
+  border-radius: 6px;
+  border-left: 3px solid var(--danger);
+}
+
+.timeline-plot-icon {
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}

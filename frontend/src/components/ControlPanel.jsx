@@ -19,6 +19,8 @@ export default function ControlPanel({
   progress,
   previewMode,
   onTogglePreview,
+  vizMode,
+  onToggleViz,
 }) {
   const [style, setStyle] = useState('default');
   const [rewriteInstruction, setRewriteInstruction] = useState('');
@@ -95,6 +97,13 @@ export default function ControlPanel({
               disabled={loading}
             >
               {previewMode ? '返回编辑' : '全文预览'}
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={onToggleViz}
+              disabled={loading}
+            >
+              {vizMode ? '返回编辑' : '故事图谱'}
             </button>
             <button
               className="btn btn-outline"

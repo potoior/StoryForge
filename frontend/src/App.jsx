@@ -6,6 +6,7 @@ import CreateStoryModal from './components/CreateStoryModal';
 import AddChapterModal from './components/AddChapterModal';
 import EditStoryModal from './components/EditStoryModal';
 import StoryPreview from './components/StoryPreview';
+import StoryVisualization from './components/StoryVisualization';
 import Toast from './components/Toast';
 
 const API = '/api';
@@ -24,6 +25,7 @@ export default function App() {
   const [showStoryList, setShowStoryList] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [vizMode, setVizMode] = useState(false);
   const [saveTrigger, setSaveTrigger] = useState(0);
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
@@ -381,6 +383,8 @@ export default function App() {
 
         {previewMode && story ? (
           <StoryPreview story={story} onClose={() => setPreviewMode(false)} />
+        ) : vizMode && story ? (
+          <StoryVisualization story={story} />
         ) : (
           <ChapterEditor chapter={activeChapter} onSave={handleSaveChapter} saveTrigger={saveTrigger} />
         )}
@@ -396,7 +400,9 @@ export default function App() {
           loading={loading}
           progress={progress}
           previewMode={previewMode}
-          onTogglePreview={() => setPreviewMode(!previewMode)}
+          onTogglePreview={() => { setPreviewMode(!previewMode); setVizMode(false); }}
+          vizMode={vizMode}
+          onToggleViz={() => { setVizMode(!vizMode); setPreviewMode(false); }}
         />
       </div>
 
