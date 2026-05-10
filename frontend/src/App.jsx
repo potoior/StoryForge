@@ -24,8 +24,51 @@ export default function App() {
   const [showStoryList, setShowStoryList] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [saveTrigger, setSaveTrigger] = useState(0);
 
   const activeChapter = story?.chapters.find((c) => c.id === activeChapterId) || null;
+  const hasOpenModal = showCreateModal || showAddChapterModal || showEditModal;
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Escape: close any open modal
+      if (e.key === 'Escape') {
+        if (showCreateModal) setShowCreateModal(false);
+        else if (showAddChapterModal) setShowAddChapterModal(false);
+        else if (showEditModal) setShowEditModal(false);
+        else if (showStoryList) setShowStoryList(false);
+        return;
+      }
+
+      // Don't handle shortcuts when modals are open or user is typing
+      if (hasOpenModal) return;
+      const tag = e.target.tagName;
+      const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+      // Ctrl+S: save current chapter
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        setSaveTrigger((n) => n + 1);
+        return;
+      }
+
+      // Arrow keys: switch chapters (only when not editing text)
+      if (!isEditing && !previewMode && story?.chapters.length > 0) {
+        const idx = story.chapters.findIndex((c) => c.id === activeChapterId);
+        if (e.key === 'ArrowUp' && idx > 0) {
+          e.preventDefault();
+          setActiveChapterId(story.chapters[idx - 1].id);
+        } else if (e.key === 'ArrowDown' && idx < story.chapters.length - 1) {
+          e.preventDefault();
+          setActiveChapterId(story.chapters[idx + 1].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showCreateModal, showAddChapterModal, showEditModal, showStoryList, hasOpenModal, previewMode, story, activeChapterId]);
 
   const fetchStoryList = useCallback(async () => {
     try {
@@ -339,7 +382,7 @@ export default function App() {
         {previewMode && story ? (
           <StoryPreview story={story} onClose={() => setPreviewMode(false)} />
         ) : (
-          <ChapterEditor chapter={activeChapter} onSave={handleSaveChapter} />
+          <ChapterEditor chapter={activeChapter} onSave={handleSaveChapter} saveTrigger={saveTrigger} />
         )}
 
         <ControlPanel

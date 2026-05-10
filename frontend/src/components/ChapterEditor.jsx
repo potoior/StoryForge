@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-export default function ChapterEditor({ chapter, onSave }) {
+export default function ChapterEditor({ chapter, onSave, saveTrigger }) {
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
@@ -41,6 +41,14 @@ export default function ChapterEditor({ chapter, onSave }) {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
+
+  // Ctrl+S: immediate save
+  useEffect(() => {
+    if (saveTrigger > 0 && chapter) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      doSave();
+    }
+  }, [saveTrigger]);
 
   // 切换章节时保存上一章
   const prevChapterIdRef = useRef(chapter?.id);
