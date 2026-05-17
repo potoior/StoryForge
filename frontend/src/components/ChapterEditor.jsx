@@ -74,7 +74,11 @@ export default function ChapterEditor({ chapter, onSave, saveTrigger }) {
     );
   }
 
-  const wordCount = content.replace(/\s/g, '').length;
+  const wordCount = (() => {
+    const zh = (content.match(/[一-鿿]/g) || []).length;
+    const en = content.replace(/[一-鿿]/g, ' ').split(/\s+/).filter(Boolean).length;
+    return zh + en;
+  })();
 
   const handleTitleChange = (e) => {
     setTitle(e.target.value);

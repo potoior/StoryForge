@@ -314,6 +314,22 @@ export default function App() {
     }
   };
 
+  const handleReorder = async (chapterIds) => {
+    if (!story) return;
+    try {
+      const res = await fetch(`${API}/stories/${story.story_id}/chapters/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chapter_ids: chapterIds }),
+      });
+      if (!res.ok) throw new Error('排序失败');
+      const data = await res.json();
+      setStory(data);
+    } catch (err) {
+      addToast('排序失败：' + err.message, 'error');
+    }
+  };
+
   const handleDeleteChapter = async (chapterId) => {
     if (!story) return;
     try {
@@ -432,7 +448,18 @@ export default function App() {
             onSelect={(id) => { setActiveChapterId(id); setPreviewMode(false); setVizMode(false); setWorldMode(false); }}
             onAddChapter={() => setShowAddChapterModal(true)}
             onDeleteChapter={handleDeleteChapter}
+            onReorder={handleReorder}
           />
+          {story?.chapters?.length > 0 && (
+            <div className="sidebar-footer">
+              全书共 {story.chapters.reduce((sum, ch) => {
+                const text = ch.content || '';
+                const zh = (text.match(/[一-鿿]/g) || []).length;
+                const en = text.replace(/[一-鿿]/g, ' ').split(/\s+/).filter(Boolean).length;
+                return sum + zh + en;
+              }, 0)} 字
+            </div>
+          )}
         </aside>
 
         {previewMode && story ? (

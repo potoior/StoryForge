@@ -3,7 +3,7 @@ import asyncio
 import threading
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from ..models import Story, StoryCreateRequest, ChapterRewriteRequest, ChapterAddRequest, StoryUpdateRequest, WorldUpdateRequest
+from ..models import Story, StoryCreateRequest, ChapterRewriteRequest, ChapterAddRequest, StoryUpdateRequest, WorldUpdateRequest, ChapterReorderRequest
 from ..story_engine import StoryEngine
 from ..llm_client import create_llm_client
 from .. import storage
@@ -145,6 +145,24 @@ async def edit_chapter(story_id: str, chapter_id: str, body: dict):
             return ch
 
     raise HTTPException(status_code=404, detail="Chapter not found")
+
+
+@router.put("/stories/{story_id}/chapters/reorder", response_model=Story)
+async def reorder_chapters(story_id: str, request: ChapterReorderRequest):
+    story = storage.load_story(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    chapter_map = {ch.id: ch for ch in story.chapters}
+    if set(request.chapter_ids) != set(chapter_map.keys()):
+        raise HTTPException(status_code=400, detail="chapter_ids must contain all chapter IDs exactly once")
+
+    story.chapters = [chapter_map[cid] for cid in request.chapter_ids]
+    for i, ch in enumerate(story.chapters):
+        ch.chapter_number = i + 1
+
+    storage.save_story(story)
+    return story
 
 
 @router.post("/stories/{story_id}/chapters/{chapter_id}/update-memory", response_model=Story)

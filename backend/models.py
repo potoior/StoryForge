@@ -114,3 +114,7 @@ class WorldUpdateRequest(BaseModel):
     factions: Optional[List[dict]] = None
     relationships: Optional[List[CharacterRelation]] = None
     notes: Optional[str] = None
+
+
+class ChapterReorderRequest(BaseModel):
+    chapter_ids: List[str]
