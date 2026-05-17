@@ -33,6 +33,17 @@ class StoryMemory(BaseModel):
     unresolved_plots: List[str] = []  # 未解决的伏笔/悬念
 
 
+class MemoryDelta(BaseModel):
+    """一章结束后提取的变化量，用于增量更新 StoryMemory"""
+    new_events: List[str] = []
+    character_updates: dict[str, str] = {}
+    new_relationships: List[CharacterRelation] = []
+    resolved_plots: List[str] = []
+    new_plots: List[str] = []
+    chapter_summary: str = ""
+    story_summary_update: str = ""
+
+
 class WorldBuilding(BaseModel):
     """世界观设定，由用户手动维护，AI 生成时作为参考"""
     world_lore: str = ""  # 世界观背景描述

@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Optional
-from .models import Story, Chapter, ChapterStatus, StoryCreateRequest, ChapterRewriteRequest, StoryMemory
+from .models import Story, Chapter, ChapterStatus, StoryCreateRequest, ChapterRewriteRequest, StoryMemory, MemoryDelta
 from .llm_client import BaseLLMClient
 from .prompts import (
     OUTLINE_SYSTEM_PROMPT, build_outline_prompt,
@@ -115,6 +115,50 @@ def _build_world_context(world) -> str:
         parts.append(f"ADDITIONAL NOTES:\n{world.notes}")
 
     return "\n\n".join(parts) if parts else ""
+
+
+def apply_delta(memory: StoryMemory, delta: MemoryDelta) -> StoryMemory:
+    """将增量变化合并到现有记忆中，返回新的 StoryMemory。"""
+    new_memory = memory.model_copy(deep=True)
+
+    # 剧情概述：整体覆盖
+    if delta.story_summary_update:
+        new_memory.story_summary = delta.story_summary_update
+
+    # 关键事件：追加新事件
+    if delta.new_events:
+        new_memory.key_events.extend(delta.new_events)
+
+    # 角色状态：只更新有变化的角色，其他保持不变
+    if delta.character_updates:
+        for name, state in delta.character_updates.items():
+            new_memory.character_states[name] = state
+
+    # 角色关系：按 (a, b) 对去重，更新或追加
+    if delta.new_relationships:
+        existing_keys = {(r.character_a, r.character_b) for r in new_memory.relationships}
+        for new_rel in delta.new_relationships:
+            key = (new_rel.character_a, new_rel.character_b)
+            if key in existing_keys:
+                # 更新已有关系
+                for i, r in enumerate(new_memory.relationships):
+                    if (r.character_a, r.character_b) == key:
+                        new_memory.relationships[i] = new_rel
+                        break
+            else:
+                new_memory.relationships.append(new_rel)
+                existing_keys.add(key)
+
+    # 未解伏笔：移除已解决的，追加新的
+    if delta.resolved_plots:
+        resolved_set = {p.strip() for p in delta.resolved_plots}
+        new_memory.unresolved_plots = [
+            p for p in new_memory.unresolved_plots if p.strip() not in resolved_set
+        ]
+    if delta.new_plots:
+        new_memory.unresolved_plots.extend(delta.new_plots)
+
+    return new_memory
 
 
 class StoryEngine:
@@ -332,8 +376,8 @@ class StoryEngine:
         return story
 
     def _update_memory(self, story: Story, chapter: Chapter) -> StoryMemory:
-        """用 LLM 从新章节中提取记忆更新。"""
-        print(f"[StoryEngine] Extracting memory from chapter {chapter.chapter_number}...")
+        """用 LLM 从新章节中提取增量变化，合并到现有记忆。"""
+        print(f"[StoryEngine] Extracting memory delta from chapter {chapter.chapter_number}...")
         characters = [c.name for c in story.characters]
         current_memory = story.memory.model_dump()
 
@@ -349,13 +393,8 @@ class StoryEngine:
         try:
             raw = self.llm.generate(prompt, MEMORY_SYSTEM_PROMPT)
             data = _extract_json(raw)
-            return StoryMemory(
-                story_summary=data.get("story_summary", story.memory.story_summary),
-                character_states=data.get("character_states", story.memory.character_states),
-                relationships=data.get("relationships", story.memory.relationships),
-                key_events=data.get("key_events", story.memory.key_events),
-                unresolved_plots=data.get("unresolved_plots", story.memory.unresolved_plots),
-            )
+            delta = MemoryDelta(**data)
+            return apply_delta(story.memory, delta)
         except Exception as e:
             print(f"[StoryEngine] Memory extraction failed: {e}, keeping existing memory")
             return story.memory
